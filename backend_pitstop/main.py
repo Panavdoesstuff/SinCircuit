@@ -8,6 +8,7 @@ from models import RaceState
 from rag.retriever import get_strategy_context
 from api.groq_client import get_agent_response
 from agents.race_engineer import race_engineer_agent
+from agents.debate_orchestrator import run_debate
 
 app = FastAPI(title="SinCircuit AI Engine")
 
@@ -49,38 +50,24 @@ async def pit_stop(compound: str):
 @app.post("/debate")
 async def start_debate():
     try:
-        # 1. Get current data from our state machine
+        # 1. Get the current race state math
         state = active_race.to_dict()
         
-        # 2. Get historical matches from RAG
-        historical_matches = get_strategy_context(
-            state["lap"], 
-            state["compound"], 
-            state["tyre_age"], 
-            state["gap_to_leader"]
-        )
+        # 2. Run the LangGraph Orchestrator
+        # This one line handles RAG and all 4 agents in order
+        debate_result = run_debate(state)
         
-        context_str = "\n".join(historical_matches)
-        current_sit = (
-            f"Lap {state['lap']}, {state['compound']} tyres ({state['tyre_age']} laps old), "
-            f"Gap: {state['gap_to_leader']}s"
-        )
-
-        # 3. Get opinions from the general Groq client
-        strat_view = get_agent_response("strategist", current_sit, context_str)
-        spec_view = get_agent_response("specialist", current_sit, context_str)
-        
-        # 4. Use your NEW specialized Race Engineer Agent for the final call
-        # THIS IS THE LINE YOU CHANGED
-        final_call = race_engineer_agent(state, historical_matches)
-
+        # 3. Return the compiled results to your frontend
         return {
             "success": True,
             "state": state,
-            "strategist": strat_view,
-            "specialist": spec_view,
-            "final_decision": final_call, # This will now be in the 3-line format
-            "historical_evidence": historical_matches
+            "race_engineer": debate_result["engineer_rec"],
+            "tyre_strategist": debate_result["tyre_rec"],
+            "weather_oracle": debate_result["weather_rec"],
+            "rival_analyst": debate_result["rival_rec"],
+            "final_decision": debate_result["final_decision"],
+            "confidence": debate_result["confidence"],
+            "historical_evidence": debate_result["rag_context"]
         }
     except Exception as e:
         return {"success": False, "error": str(e)}

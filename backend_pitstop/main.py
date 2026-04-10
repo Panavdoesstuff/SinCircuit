@@ -1,12 +1,16 @@
+import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+
+# Internal Imports
+from .models import RaceState 
 from .rag.retriever import get_strategy_context
 from .api.groq_client import get_agent_response
 
-app = FastAPI()
+app = FastAPI(title="SinCircuit AI Engine")
 
-# Allow React to talk to FastAPI
+# --- CORS SETUP (So React can talk to this) ---
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -14,42 +18,70 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-class RaceState(BaseModel):
-    lap: int
-    compound: str
-    tyre_age: int
-    gap: float
+# 🏎️ INITIALIZE THE LIVE STATE
+# This stays in memory while the server is running
+active_race = RaceState()
+
+# --- ROUTES ---
+
+@app.get("/")
+def read_root():
+    return {"status": "Engine Online"}
+
+@app.get("/state")
+async def get_state():
+    """Returns the current raw data of the race"""
+    return active_race.to_dict()
+
+@app.post("/tick")
+async def next_lap():
+    """Moves the race forward by 1 lap and updates tyre wear/gaps"""
+    active_race.tick()
+    return active_race.to_dict()
+
+@app.post("/pit")
+async def pit_stop(compound: str):
+    """Executes a pit stop and resets tyre age"""
+    active_race.pit(compound)
+    return active_race.to_dict()
 
 @app.post("/debate")
-async def start_debate(state: RaceState):
+async def start_debate():
+    """The Big One: Pulls current state, gets RAG context, and runs AI Agents"""
     try:
-        # 1. Pull from your ALREADY LOADED data
+        # 1. Get current data from our state machine
+        state = active_race.to_dict()
+        
+        # 2. Get 3 historical matches from your RAG (ChromaDB)
         historical_matches = get_strategy_context(
-            state.lap, 
-            state.compound, 
-            state.tyre_age, 
-            state.gap
+            state["lap"], 
+            state["compound"], 
+            state["tyre_age"], 
+            state["gap_to_leader"]
         )
         
         context_str = "\n".join(historical_matches)
-        current_situation = (
-            f"Current: Lap {state.lap}, {state.compound} tyres "
-            f"({state.tyre_age} laps old), Gap: {state.gap}s"
+        current_sit = (
+            f"Lap {state['lap']}, {state['compound']} tyres ({state['tyre_age']} laps old), "
+            f"Gap: {state['gap_to_leader']}s, Weather: {state['weather']}"
         )
 
-        # 2. Agents debate using that specific context
-        strat = get_agent_response("strategist", current_situation, context_str)
-        spec = get_agent_response("specialist", current_situation, context_str)
+        # 3. Trigger the Multi-Agent Debate
+        strat_view = get_agent_response("strategist", current_sit, context_str)
+        spec_view = get_agent_response("specialist", current_sit, context_str)
         
-        # 3. Final Decision
-        final = get_agent_response("engineer", current_situation, f"Strat: {strat}\nSpec: {spec}")
+        # 4. Lead Engineer makes the final call
+        debate_summary = f"Strategist: {strat_view}\nSpecialist: {spec_view}"
+        final_call = get_agent_response("engineer", current_sit, debate_summary)
 
         return {
             "success": True,
-            "strategist": strat,
-            "specialist": spec,
-            "final_decision": final,
-            "sources": historical_matches 
+            "state": state,
+            "strategist": strat_view,
+            "specialist": spec_view,
+            "final_decision": final_call,
+            "historical_evidence": historical_matches
         }
+
     except Exception as e:
         return {"success": False, "error": str(e)}

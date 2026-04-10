@@ -52,7 +52,7 @@ FINAL DECISION: [The specific action to take]
 SUMMARY: [2 sentences max explaining why]"""
 
     r = groq_client.chat.completions.create(
-        model="llama3-70b-8192",
+        model="llama-3.3-70b-versatile",
         messages=[{"role":"user","content":prompt}]
     )
     state["final_decision"] = r.choices[0].message.content

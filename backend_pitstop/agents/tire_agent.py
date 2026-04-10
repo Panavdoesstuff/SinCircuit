@@ -16,7 +16,7 @@ def tyre_strategist_agent(race_state: dict, rag_context: list) -> str:
     context_str = "\n".join(rag_context)
     user_msg = f"State: {race_state}\nContext: {context_str}"
     r = client.chat.completions.create(
-        model="llama3-70b-8192",
+        model="llama-3.3-70b-versatile",
         messages=[{"role":"system","content":PROMPT},{"role":"user","content":user_msg}]
     )
     return r.choices[0].message.content

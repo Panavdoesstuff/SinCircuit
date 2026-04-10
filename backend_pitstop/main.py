@@ -4,9 +4,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 # Internal Imports
-from .models import RaceState 
-from .rag.retriever import get_strategy_context
-from .api.groq_client import get_agent_response
+from models import RaceState 
+from rag.retriever import get_strategy_context
+from api.groq_client import get_agent_response
 
 app = FastAPI(title="SinCircuit AI Engine")
 

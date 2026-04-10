@@ -7,6 +7,7 @@ from pydantic import BaseModel
 from models import RaceState 
 from rag.retriever import get_strategy_context
 from api.groq_client import get_agent_response
+from agents.race_engineer import race_engineer_agent
 
 app = FastAPI(title="SinCircuit AI Engine")
 
@@ -47,12 +48,11 @@ async def pit_stop(compound: str):
 
 @app.post("/debate")
 async def start_debate():
-    """The Big One: Pulls current state, gets RAG context, and runs AI Agents"""
     try:
         # 1. Get current data from our state machine
         state = active_race.to_dict()
         
-        # 2. Get 3 historical matches from your RAG (ChromaDB)
+        # 2. Get historical matches from RAG
         historical_matches = get_strategy_context(
             state["lap"], 
             state["compound"], 
@@ -63,25 +63,24 @@ async def start_debate():
         context_str = "\n".join(historical_matches)
         current_sit = (
             f"Lap {state['lap']}, {state['compound']} tyres ({state['tyre_age']} laps old), "
-            f"Gap: {state['gap_to_leader']}s, Weather: {state['weather']}"
+            f"Gap: {state['gap_to_leader']}s"
         )
 
-        # 3. Trigger the Multi-Agent Debate
+        # 3. Get opinions from the general Groq client
         strat_view = get_agent_response("strategist", current_sit, context_str)
         spec_view = get_agent_response("specialist", current_sit, context_str)
         
-        # 4. Lead Engineer makes the final call
-        debate_summary = f"Strategist: {strat_view}\nSpecialist: {spec_view}"
-        final_call = get_agent_response("engineer", current_sit, debate_summary)
+        # 4. Use your NEW specialized Race Engineer Agent for the final call
+        # THIS IS THE LINE YOU CHANGED
+        final_call = race_engineer_agent(state, historical_matches)
 
         return {
             "success": True,
             "state": state,
             "strategist": strat_view,
             "specialist": spec_view,
-            "final_decision": final_call,
+            "final_decision": final_call, # This will now be in the 3-line format
             "historical_evidence": historical_matches
         }
-
     except Exception as e:
         return {"success": False, "error": str(e)}

@@ -1,13 +1,20 @@
+import sys
+import os
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
-from api.schemas import RaceState # Import from your schemas.py
-from agents.debate_graph import run_debate # Your LangGraph
 import uuid
 import json
 import asyncio
 
+# --- PATH FIX: This tells Python to look in the root folder for 'agents' ---
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from api.schemas import RaceState
+# Change 'debate_graph' to 'debate_orchestrator'
+from agents.debate_orchestrator import run_debate 
+
 router = APIRouter()
-races = {}  # Live memory store
+races = {}
 
 @router.post("/start")
 def start_race():

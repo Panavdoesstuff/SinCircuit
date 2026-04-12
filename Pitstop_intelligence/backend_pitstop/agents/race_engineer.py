@@ -7,8 +7,12 @@ from sentence_transformers import SentenceTransformer # Added for semantic marks
 
 load_dotenv()
 client = Groq(api_key=os.getenv("GROQ_API_KEY"))
-# Initialize the embedding model locally (Satisfies Rubric Section 2)
-embed_model = SentenceTransformer('all-MiniLM-L6-v2')
+embed_model = None
+def get_embed_model():
+    global embed_model
+    if embed_model is None:
+        embed_model = SentenceTransformer('all-MiniLM-L6-v2')
+    return embed_model
 
 # SYSTEM PROMPT: Remains structured for the JSON response
 SYSTEM_PROMPT = """You are the Senior Race Engineer for PitStop Intelligence.
@@ -34,8 +38,9 @@ def race_engineer_agent(race_state: dict, rag_context: list = None) -> str:
     current_state_desc = f"Car on lap {race_state.get('lap')} with {player.get('compound')} tyres at {player.get('tyre_age')} laps age. Battery at {player.get('ers', {}).get('battery_pct')}%."
     
     # Generate Embeddings
-    emb1 = embed_model.encode(current_state_desc)
-    emb2 = embed_model.encode(vegas_profile)
+    model = get_embed_model()
+    emb1 = model.encode(current_state_desc)
+    emb2 = model.encode(vegas_profile)
     
     # Calculate Cosine Similarity (Actual AI/ML Logic)
     similarity = float(np.dot(emb1, emb2) / (np.linalg.norm(emb1) * np.linalg.norm(emb2)))

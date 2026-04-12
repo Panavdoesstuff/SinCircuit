@@ -15,7 +15,12 @@ _collection = _client.get_or_create_collection(
     "f1_strategies",
     metadata={"hnsw:space": "cosine"}
 )
-_model = SentenceTransformer("all-MiniLM-L6-v2")
+_model = None
+def get_model():
+    global _model
+    if _model is None:
+        _model = SentenceTransformer("all-MiniLM-L6-v2")
+    return _model
 
 # ─────────────────────────────────────────────────────────────────────────────
 # The Retrieval Function
@@ -36,7 +41,8 @@ def get_strategy_context(lap: int, compound: str, tyre_age: int,
     )
     
     # Generate embedding for the query
-    embedding = _model.encode([query])[0].tolist()
+    model = get_model()
+    embedding = model.encode([query])[0].tolist()
     
     try:
         # Query the vector database

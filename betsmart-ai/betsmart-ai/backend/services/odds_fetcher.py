@@ -96,7 +96,7 @@ def get_mock_odds():
 
 def get_session():
     session = requests.Session()
-    retry = Retry(connect=5, backoff_factor=1, status_forcelist=[500, 502, 503, 504])
+    retry = Retry(total=2, connect=2, backoff_factor=0.3, status_forcelist=[500, 502, 503, 504])
     adapter = HTTPAdapter(max_retries=retry)
     session.mount('http://', adapter)
     session.mount('https://', adapter)
@@ -107,7 +107,11 @@ def get_session():
     return session
 
 def get_live_odds(sport_key="upcoming"):
-    """Fetches real-time odds from The Odds API for a specific sport."""
+    """Fetches real-time odds from The Odds API for a specific sport. Falls back to mock data if key is missing or API fails."""
+    if not API_KEY:
+        print(f"DEBUG: No API Key found. Returning mock data for {sport_key}...")
+        return get_mock_odds()
+
     url = f"https://api.the-odds-api.com/v4/sports/{sport_key}/odds/"
     params = {
         "apiKey": API_KEY,
@@ -120,7 +124,7 @@ def get_live_odds(sport_key="upcoming"):
     
     for attempt in range(2): 
         try:
-            response = session.get(url, params=params, timeout=10)
+            response = session.get(url, params=params, timeout=5)
             if response.status_code != 200:
                 print(f"API Debug ({sport_key}) {response.status_code}: {response.text}")
             if response.status_code == 422: return [] 
@@ -131,9 +135,12 @@ def get_live_odds(sport_key="upcoming"):
             return data
         except Exception as e:
             print(f"Error fetching {sport_key}: {e}")
-            time.sleep(2) # Longer wait on error
+            time.sleep(1)
             
-    return []
+    # If all attempts fail, and we are not in 'upcoming' (which is the main home feed), 
+    # we can return some mock data to keep the system alive.
+    print(f"WARNING: API call failed for {sport_key}. Falling back to mock data.")
+    return get_mock_odds()
 
 def get_all_active_odds():
     """Builds a massive pool of odds across multiple sports for search indexing."""

@@ -71,7 +71,7 @@ async def broadcast(race_id: str, data: dict):
 # ─── RACE LOOP ────────────────────────────────────────────────────────────────
 
 async def race_loop(race_id: str):
-    TICK_INTERVAL = 1.5
+    TICK_INTERVAL = 5.0
     while race_id in races:
         if paused.get(race_id, False):
             await asyncio.sleep(0.25)

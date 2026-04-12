@@ -135,6 +135,13 @@ function SplashScreen({ onStart }) {
     onStart();
   };
 
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('start') === 'true' && !loading) {
+      setTimeout(handleClick, 800);
+    }
+  }, []);
+
   return (
     <div style={{
       height: "100vh", width: "100vw",
@@ -366,7 +373,7 @@ function Standings({ standings=[], playerPos }) {
         <table style={{ width:"100%", borderCollapse:"collapse", fontSize:10 }}>
           <thead>
             <tr style={{ background:"var(--surface2)" }}>
-              {["P","Driver","Gap","Tyre","Age","Cliff","Pits"].map(h=>(
+              {["P","Driver","Gap","Compound","Age","Cliff","Pits"].map(h=>(
                 <th key={h} style={{ padding:"4px 6px", textAlign:"left", color:"var(--text-dim)", fontWeight:400, letterSpacing:".08em", fontSize:8, borderBottom:"1px solid var(--border)", fontFamily:"var(--mono)" }}>{h}</th>
               ))}
             </tr>
@@ -387,7 +394,12 @@ function Standings({ standings=[], playerPos }) {
                     {isPitting&&<span style={{ marginLeft:4, fontSize:8, color:"var(--amber)", animation:"pulse-red .8s infinite" }}>▶ PIT</span>}
                   </td>
                   <td style={{ padding:"5px 6px", color:car.position===1?"var(--green)":"var(--text-mid)", fontFamily:"var(--mono)" }}>{fmtGap(car.gap_to_leader)}</td>
-                  <td style={{ padding:"5px 6px" }}><TyreDot compound={car.compound} size={14}/></td>
+                  <td style={{ padding:"5px 6px" }}>
+                    <div style={{ display:"flex", alignItems:"center", gap:4 }}>
+                      <TyreDot compound={car.compound} size={14}/>
+                      <span style={{ fontSize:9, color:COMPOUND_COLOR[car.compound]||"var(--text-dim)", fontWeight:600, letterSpacing:".05em" }}>{(car.compound||"").toUpperCase()}</span>
+                    </div>
+                  </td>
                   <td style={{ padding:"5px 6px", color:"var(--text-mid)" }}>{car.tyre_age}</td>
                   <td style={{ padding:"5px 6px", color:cliffColor, fontWeight:cliff<=5?600:400 }}>{cliff===0?"CLIFF":cliff}</td>
                   <td style={{ padding:"5px 6px", color:"var(--text-dim)" }}>{car.pits_done}</td>
@@ -405,13 +417,14 @@ function Standings({ standings=[], playerPos }) {
 function PlayerTelemetry({ player, analysis, drsEnabled }) {
   if (!player) return null;
   const a=analysis||{};
-  // New backend: ers fields are flat on player, not nested
-  const ersMode   = player.ers_mode   || "balanced";
-  const ersBatt   = player.ers_battery_pct  ?? 100;
-  const ersGain   = player.ers_time_gain_s  ?? 0;
+  // Support both flat (new backend) and nested (legacy) ERS/fuel fields
+  const ersMode   = player.ers_mode   || player.ers?.mode   || "balanced";
+  const ersBatt   = player.ers_battery_pct  ?? player.ers?.battery_pct  ?? 100;
+  const ersGain   = player.ers_time_gain_s  ?? player.ers?.time_gain_s  ?? 0;
   const fuelKg    = player.fuel_load_kg ?? 105;
-  const fuelCost  = player.fuel_time_cost_s ?? 0;
+  const fuelCost  = player.fuel_time_cost_s ?? player.fuel_gain_s ?? 0;
   const ltc       = player.laps_to_cliff ?? 99;
+  const lastLap   = player.last_lap_time ?? (player.recent_lap_times?.length ? player.recent_lap_times[player.recent_lap_times.length - 1] : null);
   const pastCliff = player.past_cliff ?? false;
 
   const statBox=(label,value,color,sub)=>(
@@ -444,7 +457,7 @@ function PlayerTelemetry({ player, analysis, drsEnabled }) {
         <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:6 }}>
           {statBox("Fuel",`${fuelKg}kg`,"var(--amber)",`-${fmt(fuelCost,2)}s time`)}
           {statBox("Position",`P${a.player_position||"—"}`,"var(--text)",player.two_compound_rule?"✓ 2-cmpd":"⚡ rule pending")}
-          {statBox("Last Lap",`${fmt(player.last_lap_time,2)}s`,"var(--text-mid)")}
+          {statBox("Last Lap",`${fmt(lastLap,2)}s`,"var(--text-mid)")}
         </div>
         <div style={{ background:"var(--surface2)", border:"1px solid var(--border)", borderRadius:2, padding:"8px 10px" }}>
           <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:6 }}>
@@ -591,24 +604,27 @@ function Controls({ onPit, onErs, onDebate, debating, ersMode }) {
       <PanelHeader label="Controls" accent="var(--text-dim)"/>
       <div style={{ padding:10, display:"flex", flexDirection:"column", gap:10 }}>
         <div>
-          <DataLabel>Pit Stop — Compound</DataLabel>
-          <div style={{ display:"flex", gap:4, marginBottom:6 }}>
+          <DataLabel>Pit Stop — Select Compound</DataLabel>
+          <div style={{ display:"flex", gap:4, marginBottom:8 }}>
             {compounds.map(c=>(
-              <button key={c} onClick={()=>setCompound(c)} style={{
-                flex:1, padding:"5px 0", borderRadius:2, cursor:"pointer",
-                border:`1px solid ${compound===c?COMPOUND_COLOR[c]:"var(--border)"}`,
+              <button key={c} onClick={(e)=>{e.stopPropagation(); setCompound(c);}} style={{
+                flex:1, padding:"8px 2px", borderRadius:2, cursor:"pointer",
+                border:`2px solid ${compound===c?COMPOUND_COLOR[c]:"var(--border)"}`,
                 background:compound===c?`${COMPOUND_COLOR[c]}22`:"var(--surface2)",
                 color:compound===c?COMPOUND_COLOR[c]:"var(--text-dim)",
-                fontSize:10, fontWeight:600, fontFamily:"var(--mono)", transition:"all .15s",
-              }}>{COMPOUND_SHORT[c]}</button>
+                fontSize:9, fontWeight:700, fontFamily:"var(--mono)", transition:"all .15s",
+                letterSpacing:".05em", textTransform:"uppercase",
+                boxShadow:compound===c?`0 0 10px ${COMPOUND_COLOR[c]}33`:"none",
+              }}>{c}</button>
             ))}
           </div>
+          <div style={{ fontSize:9, color:"var(--text-dim)", marginBottom:6, textAlign:"center" }}>SELECTED: <span style={{ color:COMPOUND_COLOR[compound], fontWeight:700 }}>{compound.toUpperCase()}</span></div>
           <button onClick={()=>onPit(compound)} style={{
-            width:"100%", padding:"8px 0", borderRadius:2, background:"var(--red)", border:"none",
-            color:"#fff", fontSize:11, fontWeight:700, fontFamily:"var(--display)",
-            letterSpacing:".1em", cursor:"pointer", textTransform:"uppercase",
-            boxShadow:"0 0 16px rgba(232,0,45,.3)",
-          }}>▶ BOX BOX BOX</button>
+            width:"100%", padding:"10px 0", borderRadius:2, background:"var(--red)", border:"none",
+            color:"#fff", fontSize:12, fontWeight:700, fontFamily:"var(--display)",
+            letterSpacing:".12em", cursor:"pointer", textTransform:"uppercase",
+            boxShadow:"0 0 20px rgba(232,0,45,.4)",
+          }}>▶ BOX BOX BOX — {compound.toUpperCase()}</button>
         </div>
         <div>
           <DataLabel>ERS Mode</DataLabel>
@@ -1068,8 +1084,9 @@ export default function App() {
   const s        = state || {};
   const player   = s.player || {};
   const analysis = s.analysis || {};
-  // New backend shape: sc fields are top-level, not nested under safety_car
-  const sc       = { active: s.sc_active, deployments: s.sc_deployments || [], laps_remaining: s.sc_laps_remaining };
+  // Support both flat (new backend) and nested (legacy) safety car fields
+  const sc_raw   = s.safety_car || {};
+  const sc       = { active: s.sc_active ?? sc_raw.active, type: s.sc_type ?? sc_raw.type, deployments: s.sc_deployments || sc_raw.deployments || [], laps_remaining: s.sc_laps_remaining ?? sc_raw.laps_remaining };
   const ersMode  = player.ers_mode || player.ers?.mode || "balanced";
 
   return (

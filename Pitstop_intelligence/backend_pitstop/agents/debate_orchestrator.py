@@ -50,11 +50,21 @@ def run_debate(race_data: dict):
     HISTORICAL RAG DATA:
     {history_str}
 
+    CRITICAL STRATEGIC RULES (MUST FOLLOW):
+    1. NEVER recommend pitting if there are 7 or fewer laps remaining — the time lost in the pit lane (~22s) cannot be recovered in so few laps. The tyres will last.
+    2. NEVER recommend pitting if the driver JUST pitted (tyre_age < 5 laps) — new tyres don't need replacing.
+    3. Only recommend BOX if there is a CLEAR strategic reason: tyre cliff approaching (age > 20 for softs, > 30 for mediums, > 40 for hards), safety car opportunity (free stop), or weather change requiring compound switch.
+    4. If the driver is in the points (top 10), be CONSERVATIVE — don't risk position with unnecessary stops.
+    5. If laps remaining <= 7, the ONLY valid recommendation is STAY OUT unless weather is changing to heavy rain.
+    6. Radio messages should be short, punchy and professional — like real F1 engineer comms (e.g. "Keep your head down, tyres are fine" or "Box box box, pit confirm").
+    7. Consider that a pit stop costs approximately 22 seconds — only recommend if the strategic gain exceeds this cost.
+
     INSTRUCTIONS:
     1. Respond ONLY in a valid JSON format.
     2. Provide detailed, technical reasoning (3-4 sentences each).
     3. Use the RAG data to justify decisions (e.g., 'Similar to Hamilton in 2021...').
-    4. The 'radio_message' should be punchy and professional.
+    4. The 'radio_message' should be punchy and professional — maximum 15 words.
+    5. 'final_decision' MUST be either 'BOX' or 'STAY OUT' — follow the strategic rules above.
     """
 
     user_prompt = """
@@ -63,8 +73,8 @@ def run_debate(race_data: dict):
     'tyre_rec': Focus on degradation and the 'cliff'.
     'weather_rec': Focus on rain probability and track temp.
     'rival_rec': Focus on what VER/LEC are doing.
-    'final_decision': 'BOX' or 'STAY OUT'.
-    'radio_message': A short message to the driver.
+    'final_decision': 'BOX' or 'STAY OUT' (follow the strategic rules strictly).
+    'radio_message': A short message to the driver (max 15 words).
     """
 
     # ─── STEP 3: CALL LLM ───
@@ -81,18 +91,28 @@ def run_debate(race_data: dict):
         # Parse the JSON response from the LLM
         ai_output = json.loads(chat_completion.choices[0].message.content)
         
+        # ─── SAFETY OVERRIDE: Never box in last 7 laps ───
+        final = ai_output.get("final_decision", "STAY OUT")
+        radio = ai_output.get("radio_message", "Push now, Panav.")
+        if laps_rem <= 7 and "BOX" in final.upper():
+            final = "STAY OUT"
+            radio = f"Stay out Panav, only {laps_rem} laps to go. Push to the end."
+        if tyre_age < 5 and "BOX" in final.upper():
+            final = "STAY OUT"
+            radio = "Tyres are brand new, keep pushing. Good pace."
+        
         # ─── STEP 4: RETURN DYNAMIC RESULT ───
         return {
             "engineer_rec": ai_output.get("engineer_rec", "Keep pushing."),
             "tyre_rec": ai_output.get("tyre_rec", "Monitor the fronts."),
             "weather_rec": ai_output.get("weather_rec", "Radar is clear."),
             "rival_rec": ai_output.get("rival_rec", "Verstappen is within DRS."),
-            "final_decision": ai_output.get("final_decision", "STAY OUT"),
+            "final_decision": final,
             "dominant_factor": "Race Pace",
             "confidence": 0.9,
             "risk": "Moderate",
             "contingency": "Prepare for a safety car restart.",
-            "radio_message": ai_output.get("radio_message", "Push now, Panav."),
+            "radio_message": radio,
             "rag_context": history_str
         }
         

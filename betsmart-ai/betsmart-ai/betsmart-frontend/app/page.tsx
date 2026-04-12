@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
-const API = "http://127.0.0.1:8000";
+const API = "http://127.0.0.1:8001";
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  Types
@@ -533,7 +533,7 @@ export default function Home() {
     fetch(`${API}/full-system`)
       .then(r => { if (!r.ok) throw new Error("Backend not responding"); return r.json(); })
       .then(setData)
-      .catch(() => setError("Could not connect to backend. Make sure it is running on port 8000."));
+      .catch(() => setError("Could not connect to backend. Make sure it is running on port 8001."));
   }, []);
 
   // ── Count Up Animation for Odds
@@ -701,10 +701,26 @@ export default function Home() {
     </div>
   );
 
+  if (error) return (
+    <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 24, padding: 20, textAlign: "center" }}>
+      <div style={{ fontSize: 64 }}>📡</div>
+      <h1 style={{ color: "var(--neon-gold)", fontSize: 24, fontWeight: 800 }}>CONNECTION INTERRUPTED</h1>
+      <p style={{ color: "var(--text-secondary)", maxWidth: 400, lineHeight: 1.6 }}>{error}</p>
+      <button 
+        onClick={() => window.location.reload()}
+        className="btn-primary"
+        style={{ marginTop: 12 }}
+      >
+        RETRY CONNECTION
+      </button>
+    </div>
+  );
+
   if (!data) return (
     <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 16 }}>
       <div style={{ fontSize: 48 }}>🎰</div>
-      <div style={{ color: "#94a3b8", fontSize: 18 }} className="animate-pulse">Loading BetSmart AI…</div>
+      <div style={{ color: "var(--neon-gold)", fontSize: 18, fontWeight: 800 }} className="animate-pulse">SYNCHRONIZING BETSMART AI…</div>
+      <p style={{ color: "var(--text-secondary)", fontSize: 13 }}>Fetching real-time market data...</p>
     </div>
   );
 
@@ -1161,7 +1177,7 @@ export default function Home() {
                         </div>
                       </div>
                       <div style={{ display: "flex", gap: 10, marginTop: 12, fontSize: 12 }}>
-                        {[["EV", `+${d.analysis.math.ev}%`], ["Edge", `+${d.analysis.math.edge}%`], ["Kelly", `${d.analysis.math.kelly}%`]].map(([k, v]) => (
+                        {[["EV", `${d.analysis.math.ev}%`], ["Edge", d.analysis.math.edge], ["Kelly", d.analysis.math.kelly]].map(([k, v]) => (
                           <span key={k} style={{ background: "rgba(0,212,255,0.08)", border: "1px solid rgba(0,212,255,0.15)", padding: "4px 8px", borderRadius: 6, color: "var(--text-primary)", fontWeight: 600 }}>
                             <span className="section-label" style={{ color: "var(--neon-blue)", marginRight: 4 }}>{k}:</span> {v}
                           </span>

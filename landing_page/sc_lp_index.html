@@ -1,0 +1,1502 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SinCircuit | Choose Your Poison</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;700;900&family=Share+Tech+Mono&family=Bebas+Neue&display=swap"
+        rel="stylesheet">
+    <style>
+        :root {
+            --cyan: #00e6ff;
+            --red: #ff2255;
+            --gold: #ffd700;
+            --bg: #04040a;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: var(--bg);
+            color: #fff;
+            font-family: 'Share Tech Mono', monospace;
+            min-height: 100vh;
+            overflow-x: hidden;
+            cursor: crosshair;
+        }
+
+        /* BG layers */
+        #bg-canvas {
+            position: fixed;
+            inset: 0;
+            z-index: 0;
+            width: 100%;
+            height: 100%;
+        }
+
+        #city-canvas {
+            position: fixed;
+            inset: 0;
+            z-index: 1;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+
+        .noise {
+            position: fixed;
+            inset: 0;
+            z-index: 2;
+            pointer-events: none;
+            opacity: 0.035;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+            background-size: 256px 256px;
+        }
+
+        .vignette {
+            position: fixed;
+            inset: 0;
+            z-index: 3;
+            pointer-events: none;
+            background: radial-gradient(ellipse 80% 80% at 50% 50%, transparent 30%, rgba(4, 4, 10, 0.85) 100%);
+        }
+
+        /* LOADER */
+        #loader {
+            position: fixed;
+            inset: 0;
+            z-index: 9999;
+            background: var(--bg);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 44px;
+            transition: opacity 1.2s ease, transform 1.2s cubic-bezier(0.87, 0, 0.13, 1);
+        }
+
+        #loader.hide {
+            opacity: 0;
+            transform: scale(1.08);
+            pointer-events: none;
+        }
+
+        #loader-canvas {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+        }
+
+        .loader-inner {
+            position: relative;
+            z-index: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 44px;
+        }
+
+        .hex-spinner {
+            position: relative;
+            width: 140px;
+            height: 140px;
+        }
+
+        .hex-ring {
+            position: absolute;
+            inset: 0;
+            border-radius: 50%;
+            border: 1.5px solid transparent;
+        }
+
+        .hex-ring-1 {
+            border-top-color: var(--cyan);
+            border-right-color: rgba(0, 230, 255, 0.15);
+            animation: spinCW 1.4s linear infinite;
+        }
+
+        .hex-ring-2 {
+            inset: 14px;
+            border-bottom-color: rgba(0, 230, 255, 0.6);
+            border-left-color: rgba(0, 230, 255, 0.1);
+            animation: spinCCW 2s linear infinite;
+        }
+
+        .hex-ring-3 {
+            inset: 28px;
+            border-top-color: rgba(0, 230, 255, 0.4);
+            animation: spinCW 3s linear infinite;
+        }
+
+        @keyframes spinCW {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        @keyframes spinCCW {
+            to {
+                transform: rotate(-360deg);
+            }
+        }
+
+        .hex-center {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .hex-gem {
+            width: 44px;
+            height: 44px;
+            clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+            background: linear-gradient(135deg, rgba(0, 230, 255, 0.5), rgba(0, 230, 255, 0.05));
+            animation: gemPulse 2s ease-in-out infinite;
+        }
+
+        @keyframes gemPulse {
+
+            0%,
+            100% {
+                opacity: 0.4
+            }
+
+            50% {
+                opacity: 1
+            }
+        }
+
+        .loader-brand {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 2rem;
+            font-weight: 900;
+            letter-spacing: 8px;
+            background: linear-gradient(90deg, rgba(0, 230, 255, 0.4), #fff, var(--cyan), #fff, rgba(0, 230, 255, 0.4));
+            background-size: 300%;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            animation: sweep 2.5s linear infinite;
+        }
+
+        @keyframes sweep {
+            0% {
+                background-position: 200% 0
+            }
+
+            100% {
+                background-position: -200% 0
+            }
+        }
+
+        .loader-msg {
+            font-size: 0.68rem;
+            letter-spacing: 4px;
+            color: rgba(0, 230, 255, 0.5);
+            height: 16px;
+            transition: opacity 0.15s;
+        }
+
+        .loader-bar-wrap {
+            width: 300px;
+        }
+
+        .loader-bar-meta {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.58rem;
+            letter-spacing: 3px;
+            color: rgba(0, 230, 255, 0.3);
+            margin-bottom: 8px;
+        }
+
+        .loader-track {
+            height: 1px;
+            background: rgba(0, 230, 255, 0.08);
+            position: relative;
+        }
+
+        .loader-fill {
+            height: 100%;
+            width: 0%;
+            background: var(--cyan);
+            box-shadow: 0 0 12px var(--cyan);
+            transition: width 3.6s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+        }
+
+        .loader-ticks {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 5px;
+        }
+
+        .loader-ticks span {
+            width: 1px;
+            height: 3px;
+            background: rgba(0, 230, 255, 0.18);
+        }
+
+        /* MAIN */
+        #main {
+            position: relative;
+            z-index: 4;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            opacity: 0;
+            transform: translateY(16px);
+            transition: opacity 1s ease 0.1s, transform 1s ease 0.1s;
+            pointer-events: none;
+        }
+
+        #main.show {
+            opacity: 1;
+            transform: translateY(0);
+            pointer-events: auto;
+        }
+
+        /* HERO */
+        .hero {
+            width: 100%;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            padding: 2rem;
+        }
+
+        .hero::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: repeating-linear-gradient(0deg, transparent, transparent 3px, rgba(0, 230, 255, 0.012) 3px, rgba(0, 230, 255, 0.012) 4px);
+            pointer-events: none;
+        }
+
+        .hero-accent {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) rotate(-8deg);
+            width: 900px;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, rgba(0, 230, 255, 0.06), rgba(255, 255, 255, 0.04), rgba(0, 230, 255, 0.06), transparent);
+            pointer-events: none;
+        }
+
+        .hero-accent::before {
+            content: '';
+            position: absolute;
+            top: -60px;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: inherit;
+        }
+
+        .hero-accent::after {
+            content: '';
+            position: absolute;
+            top: 60px;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: inherit;
+        }
+
+        .hero-side {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            width: 1px;
+            background: linear-gradient(to bottom, transparent, rgba(0, 230, 255, 0.15) 30%, rgba(0, 230, 255, 0.15) 70%, transparent);
+            pointer-events: none;
+        }
+
+        .hero-side.left {
+            left: 60px;
+        }
+
+        .hero-side.right {
+            right: 60px;
+        }
+
+        .hero-side::before,
+        .hero-side::after {
+            content: '';
+            position: absolute;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 5px;
+            height: 5px;
+            background: var(--cyan);
+            clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
+            opacity: 0.5;
+        }
+
+        .hero-side::before {
+            top: 30%;
+        }
+
+        .hero-side::after {
+            top: 65%;
+        }
+
+        .corner {
+            position: absolute;
+            width: 30px;
+            height: 30px;
+            pointer-events: none;
+        }
+
+        .corner::before,
+        .corner::after {
+            content: '';
+            position: absolute;
+            background: rgba(0, 230, 255, 0.3);
+        }
+
+        .corner.tl {
+            top: 24px;
+            left: 24px;
+        }
+
+        .corner.tl::before {
+            width: 100%;
+            height: 1px;
+            top: 0;
+            left: 0;
+        }
+
+        .corner.tl::after {
+            width: 1px;
+            height: 100%;
+            top: 0;
+            left: 0;
+        }
+
+        .corner.tr {
+            top: 24px;
+            right: 24px;
+        }
+
+        .corner.tr::before {
+            width: 100%;
+            height: 1px;
+            top: 0;
+            right: 0;
+        }
+
+        .corner.tr::after {
+            width: 1px;
+            height: 100%;
+            top: 0;
+            right: 0;
+        }
+
+        .corner.bl {
+            bottom: 24px;
+            left: 24px;
+        }
+
+        .corner.bl::before {
+            width: 100%;
+            height: 1px;
+            bottom: 0;
+            left: 0;
+        }
+
+        .corner.bl::after {
+            width: 1px;
+            height: 100%;
+            bottom: 0;
+            left: 0;
+        }
+
+        .corner.br {
+            bottom: 24px;
+            right: 24px;
+        }
+
+        .corner.br::before {
+            width: 100%;
+            height: 1px;
+            bottom: 0;
+            right: 0;
+        }
+
+        .corner.br::after {
+            width: 1px;
+            height: 100%;
+            bottom: 0;
+            right: 0;
+        }
+
+        .site-title {
+            font-family: 'Orbitron', sans-serif;
+            font-size: clamp(5rem, 12vw, 11rem);
+            font-weight: 900;
+            letter-spacing: -1px;
+            text-transform: uppercase;
+            text-align: center;
+            position: relative;
+            line-height: 0.9;
+            background: linear-gradient(170deg, #ffffff 0%, #c8e8ff 18%, #8fc8f0 32%, #ffffff 48%, #a0ccee 60%, #ddeeff 72%, #6aabdc 85%, #c0dcf4 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            filter: drop-shadow(0 0 60px rgba(0, 230, 255, 0.22)) drop-shadow(0 12px 32px rgba(0, 0, 0, 0.9));
+            animation: titleGlow 5s ease-in-out infinite;
+        }
+
+        @keyframes titleGlow {
+
+            0%,
+            100% {
+                filter: drop-shadow(0 0 60px rgba(0, 230, 255, 0.22)) drop-shadow(0 12px 32px rgba(0, 0, 0, 0.9));
+            }
+
+            50% {
+                filter: drop-shadow(0 0 90px rgba(0, 230, 255, 0.4)) drop-shadow(0 12px 32px rgba(0, 0, 0, 0.9));
+            }
+        }
+
+        .title-shadow {
+            position: absolute;
+            inset: 0;
+            font-family: 'Orbitron', sans-serif;
+            font-size: inherit;
+            font-weight: 900;
+            letter-spacing: inherit;
+            text-transform: uppercase;
+            text-align: center;
+            line-height: inherit;
+            color: transparent;
+            -webkit-text-stroke: 0px transparent;
+            text-shadow: 2px 3px 0 rgba(0, 0, 0, 0.6), 3px 5px 0 rgba(0, 0, 0, 0.4), 4px 7px 0 rgba(0, 0, 0, 0.3), 6px 10px 20px rgba(0, 0, 0, 0.8);
+            pointer-events: none;
+            z-index: -1;
+        }
+
+        .site-title::after {
+            content: 'SinCircuit';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(170deg, #ff2255, #00e6ff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            opacity: 0;
+            animation: glitchFlash 8s infinite;
+        }
+
+        @keyframes glitchFlash {
+
+            0%,
+            94%,
+            96%,
+            98%,
+            100% {
+                opacity: 0;
+                transform: none;
+            }
+
+            95% {
+                opacity: 0.6;
+                transform: translate(-3px, 0) skewX(-4deg);
+            }
+
+            97% {
+                opacity: 0.3;
+                transform: translate(3px, 0);
+            }
+        }
+
+        .title-chrome {
+            width: 100%;
+            max-width: 900px;
+            margin: 0 auto;
+            position: relative;
+            height: 12px;
+            margin-top: 10px;
+        }
+
+        .title-chrome-bar {
+            height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(0, 230, 255, 0.6), rgba(255, 255, 255, 0.5), rgba(0, 230, 255, 0.6), transparent);
+        }
+
+        .title-chrome-glow {
+            position: absolute;
+            top: -4px;
+            left: 20%;
+            right: 20%;
+            height: 8px;
+            background: rgba(0, 230, 255, 0.08);
+            filter: blur(4px);
+        }
+
+        .title-chrome-dots {
+            position: absolute;
+            top: 4px;
+            left: 0;
+            right: 0;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .title-chrome-dots span {
+            width: 3px;
+            height: 3px;
+            background: rgba(0, 230, 255, 0.3);
+            clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
+        }
+
+        /* CARDS */
+        .cards-section {
+            width: 100%;
+            position: relative;
+            padding: 0 2rem 8rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .poison-label {
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: clamp(2.5rem, 5vw, 4.5rem);
+            letter-spacing: 16px;
+            color: transparent;
+            -webkit-text-stroke: 1px rgba(0, 230, 255, 0.5);
+            text-transform: uppercase;
+            text-align: center;
+            margin-bottom: 16px;
+            position: relative;
+        }
+
+        .poison-label::before {
+            content: attr(data-text);
+            position: absolute;
+            inset: 0;
+            -webkit-text-stroke: 0;
+            color: rgba(0, 230, 255, 0.07);
+            transform: translate(3px, 3px);
+        }
+
+        .poison-sub {
+            font-size: 0.6rem;
+            letter-spacing: 8px;
+            color: rgba(255, 255, 255, 0.2);
+            text-transform: uppercase;
+            text-align: center;
+            margin-bottom: 60px;
+        }
+
+        .section-divider {
+            width: 100%;
+            max-width: 1100px;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(0, 230, 255, 0.2), transparent);
+            margin-bottom: 60px;
+            position: relative;
+        }
+
+        .section-divider::before {
+            content: '◆';
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            color: rgba(0, 230, 255, 0.3);
+            font-size: 8px;
+            background: var(--bg);
+            padding: 0 12px;
+        }
+
+        .cards-row {
+            display: flex;
+            gap: 56px;
+            align-items: flex-start;
+            position: relative;
+        }
+
+        .cards-row::before {
+            content: '';
+            position: absolute;
+            left: 50%;
+            top: -20px;
+            bottom: -40px;
+            width: 1px;
+            background: linear-gradient(to bottom, transparent, rgba(0, 230, 255, 0.12), transparent);
+            transform: translateX(-50%);
+            pointer-events: none;
+        }
+
+        .card-column {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 24px;
+        }
+
+        .card-tag {
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 0.58rem;
+            letter-spacing: 5px;
+            color: rgba(0, 230, 255, 0.35);
+            text-transform: uppercase;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .card-tag::before,
+        .card-tag::after {
+            content: '';
+            width: 20px;
+            height: 1px;
+            background: rgba(0, 230, 255, 0.2);
+        }
+
+        .card-wrap {
+            position: relative;
+            width: 480px;
+            height: 490px;
+        }
+
+        .card-ambient {
+            position: absolute;
+            inset: -30px;
+            border-radius: 50%;
+            opacity: 0;
+            transition: opacity 0.6s ease;
+            pointer-events: none;
+            z-index: 0;
+            filter: blur(40px);
+        }
+
+        #card-a .card-ambient {
+            background: radial-gradient(ellipse, rgba(0, 200, 255, 0.2), transparent 65%);
+        }
+
+        #card-b .card-ambient {
+            background: radial-gradient(ellipse, rgba(180, 80, 255, 0.18), transparent 65%);
+        }
+
+        .card-wrap:hover .card-ambient {
+            opacity: 1;
+        }
+
+        .card-wrap::before,
+        .card-wrap::after,
+        .card-inner::before,
+        .card-inner::after {
+            content: '';
+            position: absolute;
+            width: 18px;
+            height: 18px;
+            border-color: rgba(0, 230, 255, 0.35);
+            border-style: solid;
+            z-index: 10;
+            transition: all 0.45s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .card-wrap::before {
+            top: 0;
+            left: 0;
+            border-width: 2px 0 0 2px;
+        }
+
+        .card-wrap::after {
+            top: 0;
+            right: 0;
+            border-width: 2px 2px 0 0;
+        }
+
+        .card-inner::before {
+            bottom: 0;
+            left: 0;
+            border-width: 0 0 2px 2px;
+        }
+
+        .card-inner::after {
+            bottom: 0;
+            right: 0;
+            border-width: 0 2px 2px 0;
+        }
+
+        .card-wrap:hover::before {
+            top: -7px;
+            left: -7px;
+            width: 26px;
+            height: 26px;
+            border-color: var(--cyan);
+        }
+
+        .card-wrap:hover::after {
+            top: -7px;
+            right: -7px;
+            width: 26px;
+            height: 26px;
+            border-color: var(--cyan);
+        }
+
+        .card-wrap:hover .card-inner::before {
+            bottom: -7px;
+            left: -7px;
+            width: 26px;
+            height: 26px;
+            border-color: var(--cyan);
+        }
+
+        .card-wrap:hover .card-inner::after {
+            bottom: -7px;
+            right: -7px;
+            width: 26px;
+            height: 26px;
+            border-color: var(--cyan);
+        }
+
+        .card-inner {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            border: 1px solid rgba(0, 230, 255, 0.1);
+            background: rgba(0, 0, 0, 0.6);
+            overflow: hidden;
+            transition: border-color 0.45s ease, box-shadow 0.45s ease;
+            z-index: 1;
+        }
+
+        .card-wrap:hover .card-inner {
+            border-color: rgba(0, 230, 255, 0.28);
+            box-shadow: inset 0 0 80px rgba(0, 0, 0, 0.5), 0 30px 80px rgba(0, 0, 0, 0.5);
+        }
+
+        .card-shimmer {
+            position: absolute;
+            top: 0;
+            left: -120%;
+            width: 60%;
+            height: 100%;
+            background: linear-gradient(108deg, transparent, rgba(255, 255, 255, 0.06), rgba(0, 230, 255, 0.04), transparent);
+            z-index: 7;
+            pointer-events: none;
+        }
+
+        .card-wrap:hover .card-shimmer {
+            animation: swipe 0.9s ease forwards;
+        }
+
+        @keyframes swipe {
+            to {
+                left: 160%;
+            }
+        }
+
+        .card-vignette {
+            position: absolute;
+            inset: 0;
+            z-index: 5;
+            pointer-events: none;
+            background: radial-gradient(ellipse at center, transparent 50%, rgba(0, 0, 0, 0.6) 100%);
+            opacity: 0;
+            transition: opacity 0.45s ease;
+        }
+
+        .card-wrap:hover .card-vignette {
+            opacity: 1;
+        }
+
+        .card-status {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            z-index: 8;
+            pointer-events: none;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 0.48rem;
+            letter-spacing: 3px;
+            color: rgba(0, 230, 255, 0.35);
+        }
+
+        .status-dot {
+            width: 4px;
+            height: 4px;
+            border-radius: 50%;
+            background: var(--cyan);
+            animation: blink 2s ease-in-out infinite;
+        }
+
+        @keyframes blink {
+
+            0%,
+            100% {
+                opacity: 1
+            }
+
+            50% {
+                opacity: 0.1
+            }
+        }
+
+        .card-label {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            padding: 24px 12px 8px;
+            font-size: 0.52rem;
+            letter-spacing: 4px;
+            color: rgba(0, 230, 255, 0.35);
+            background: linear-gradient(to top, rgba(0, 0, 0, 0.95), transparent);
+            text-align: center;
+            z-index: 7;
+            pointer-events: none;
+        }
+
+        iframe.card-frame {
+            display: block;
+            width: 960px;
+            height: 980px;
+            border: none;
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 2;
+            pointer-events: auto;
+            transform: scale(0.5);
+            transform-origin: top left;
+        }
+
+        /* BUTTONS */
+        .join-btn {
+            width: 480px;
+            padding: 1rem 2rem;
+            font-family: 'Orbitron', sans-serif;
+            font-size: 0.75rem;
+            font-weight: 700;
+            letter-spacing: 5px;
+            text-transform: uppercase;
+            color: rgba(0, 230, 255, 0.7);
+            background: transparent;
+            border: none;
+            cursor: crosshair;
+            position: relative;
+            overflow: hidden;
+            transition: color 0.35s ease;
+            clip-path: polygon(10px 0%, calc(100% - 10px) 0%, 100% 10px, 100% calc(100% - 10px), calc(100% - 10px) 100%, 10px 100%, 0% calc(100% - 10px), 0% 10px);
+        }
+
+        .join-btn-border {
+            position: absolute;
+            inset: 0;
+            clip-path: inherit;
+            border: 1px solid rgba(0, 230, 255, 0.2);
+            transition: border-color 0.35s ease;
+        }
+
+        .join-btn-fill {
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(90deg, transparent, rgba(0, 230, 255, 0.07), transparent);
+            transform: translateX(-110%);
+            transition: transform 0.55s ease;
+        }
+
+        .join-btn:hover .join-btn-fill {
+            transform: translateX(110%);
+        }
+
+        .join-btn:hover .join-btn-border {
+            border-color: rgba(0, 230, 255, 0.5);
+        }
+
+        .join-btn:hover {
+            color: #fff;
+        }
+
+        .join-btn:active {
+            transform: scale(0.98);
+        }
+
+        .join-btn-text {
+            position: relative;
+            z-index: 1;
+        }
+
+        .join-btn::before,
+        .join-btn::after {
+            content: '';
+            position: absolute;
+            width: 6px;
+            height: 6px;
+            border-color: rgba(0, 230, 255, 0.3);
+            border-style: solid;
+            transition: border-color 0.3s;
+            z-index: 2;
+        }
+
+        .join-btn::before {
+            top: 0;
+            left: 0;
+            border-width: 1px 0 0 1px;
+        }
+
+        .join-btn::after {
+            bottom: 0;
+            right: 0;
+            border-width: 0 1px 1px 0;
+        }
+
+        .join-btn:hover::before,
+        .join-btn:hover::after {
+            border-color: var(--cyan);
+        }
+    </style>
+</head>
+
+<body>
+
+    <canvas id="bg-canvas"></canvas>
+    <canvas id="city-canvas"></canvas>
+    <div class="noise"></div>
+    <div class="vignette"></div>
+
+    <!-- LOADER -->
+    <div id="loader">
+        <canvas id="loader-canvas"></canvas>
+        <div class="loader-inner">
+            <div class="hex-spinner">
+                <div class="hex-ring hex-ring-1"></div>
+                <div class="hex-ring hex-ring-2"></div>
+                <div class="hex-ring hex-ring-3"></div>
+                <div class="hex-center">
+                    <div class="hex-gem"></div>
+                </div>
+            </div>
+            <div style="text-align:center;">
+                <div class="loader-brand">SinCircuit</div>
+                <div class="loader-msg" id="loaderMsg">INITIALIZING SYSTEM</div>
+            </div>
+            <div class="loader-bar-wrap">
+                <div class="loader-bar-meta">
+                    <span id="loaderPhase">BOOT SEQUENCE</span>
+                    <span id="loaderPct">0%</span>
+                </div>
+                <div class="loader-track">
+                    <div class="loader-fill" id="loaderFill"></div>
+                </div>
+                <div class="loader-ticks">
+                    <span></span><span></span><span></span><span></span><span></span>
+                    <span></span><span></span><span></span><span></span><span></span>
+                    <span></span><span></span><span></span><span></span><span></span>
+                    <span></span><span></span><span></span><span></span><span></span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MAIN -->
+    <div id="main">
+        <section class="hero">
+            <div class="hero-accent"></div>
+            <div class="hero-side left"></div>
+            <div class="hero-side right"></div>
+            <div class="corner tl"></div>
+            <div class="corner tr"></div>
+            <div class="corner bl"></div>
+            <div class="corner br"></div>
+            <div style="position:relative;">
+                <div class="title-shadow" aria-hidden="true">SinCircuit</div>
+                <h1 class="site-title">SinCircuit</h1>
+            </div>
+            <div class="title-chrome">
+                <div class="title-chrome-bar"></div>
+                <div class="title-chrome-glow"></div>
+                <div class="title-chrome-dots">
+                    <span></span><span></span><span></span><span></span><span></span>
+                    <span></span><span></span><span></span><span></span>
+                </div>
+            </div>
+        </section>
+
+        <section class="cards-section">
+            <div class="poison-label" data-text="Choose Your Poison">Choose Your Poison</div>
+            <div class="poison-sub">select an interface to enter</div>
+            <div class="section-divider"></div>
+            <div class="cards-row">
+
+                <!-- Left -->
+                <div class="card-column">
+                    <div class="card-tag">Interface 01</div>
+                    <div class="card-wrap" id="card-a">
+                        <div class="card-ambient"></div>
+                        <div class="card-inner">
+                            <div class="card-shimmer"></div>
+                            <div class="card-vignette"></div>
+                            <div class="card-status">
+                                <div class="status-dot"></div>LIVE
+                            </div>
+                            <iframe class="card-frame" src="https://important-leaders-285280.framer.app"
+                                title="BetSmart AI"
+                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                allowfullscreen></iframe>
+                            <div class="card-label">BETSMART AI INTERFACE</div>
+                        </div>
+                    </div>
+                    <button class="join-btn">
+                        <div class="join-btn-border"></div>
+                        <div class="join-btn-fill"></div>
+                        <span class="join-btn-text">Enter BetSmart</span>
+                    </button>
+                </div>
+
+                <!-- Right -->
+                <div class="card-column">
+                    <div class="card-tag">Interface 02</div>
+                    <div class="card-wrap" id="card-b">
+                        <div class="card-ambient"></div>
+                        <div class="card-inner">
+                            <div class="card-shimmer"></div>
+                            <div class="card-vignette"></div>
+                            <div class="card-status">
+                                <div class="status-dot"></div>LIVE
+                            </div>
+                            <iframe class="card-frame" src="https://lovely-panda-723091.framer.app"
+                                title="PitStop Intelligence"
+                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                allowfullscreen></iframe>
+                            <div class="card-label">PITSTOP INTELLIGENCE UI</div>
+                        </div>
+                    </div>
+                    <button class="join-btn" onclick="window.location.href='http://localhost:3000/'">
+                        <div class="join-btn-border"></div>
+                        <div class="join-btn-fill"></div>
+                        <span class="join-btn-text">Enter PitStop</span>
+                    </button>
+                </div>
+
+            </div>
+        </section>
+    </div>
+
+    <script>
+        /* ── AURORA BG ── */
+        const bgC = document.getElementById('bg-canvas');
+        const bgX = bgC.getContext('2d');
+        function resizeBG() { bgC.width = innerWidth; bgC.height = innerHeight; }
+        resizeBG(); window.addEventListener('resize', resizeBG);
+
+        const blobs = [
+            { x: 0.2, y: 0.3, r: 0.35, hue: 190, phase: 0, speed: 0.0003 },
+            { x: 0.8, y: 0.7, r: 0.3, hue: 260, phase: 2, speed: 0.0004 },
+            { x: 0.5, y: 0.9, r: 0.4, hue: 200, phase: 1, speed: 0.00025 },
+        ];
+        function drawGrid() {
+            bgX.strokeStyle = 'rgba(0,230,255,0.028)'; bgX.lineWidth = 0.5;
+            for (let x = 0; x < bgC.width; x += 44) { bgX.beginPath(); bgX.moveTo(x, 0); bgX.lineTo(x, bgC.height); bgX.stroke(); }
+            for (let y = 0; y < bgC.height; y += 44) { bgX.beginPath(); bgX.moveTo(0, y); bgX.lineTo(bgC.width, y); bgX.stroke(); }
+        }
+        let bgT = 0;
+        (function drawBG() {
+            bgX.clearRect(0, 0, bgC.width, bgC.height);
+            bgX.fillStyle = '#04040a'; bgX.fillRect(0, 0, bgC.width, bgC.height);
+            blobs.forEach(b => {
+                const bx = (b.x + Math.sin(bgT * b.speed + b.phase) * 0.12) * bgC.width;
+                const by = (b.y + Math.cos(bgT * b.speed * 0.7 + b.phase) * 0.1) * bgC.height;
+                const br = b.r * Math.min(bgC.width, bgC.height);
+                const g = bgX.createRadialGradient(bx, by, 0, bx, by, br);
+                g.addColorStop(0, `hsla(${b.hue},100%,60%,0.055)`);
+                g.addColorStop(1, 'transparent');
+                bgX.fillStyle = g; bgX.beginPath(); bgX.arc(bx, by, br, 0, Math.PI * 2); bgX.fill();
+            });
+            drawGrid(); bgT++; requestAnimationFrame(drawBG);
+        })();
+
+        /* ── CITY CANVAS ── */
+        const cityC = document.getElementById('city-canvas');
+        const cx = cityC.getContext('2d');
+        function resizeCity() { cityC.width = innerWidth; cityC.height = innerHeight; initCity(); }
+
+        const NEON = ['#00e6ff', '#ff2255', '#ffd700', '#bf00ff', '#00ff88', '#ff6600', '#ff00cc', '#00ffee'];
+        const rand = arr => arr[Math.floor(Math.random() * arr.length)];
+
+        let buildings = [], palms = [], streetLights = [];
+
+        function initCity() {
+            const W = cityC.width, H = cityC.height, HZ = H * 0.60;
+            buildings = []; palms = []; streetLights = [];
+
+            /* Back-row buildings */
+            const backN = Math.ceil(W / 55) + 2;
+            for (let i = 0; i < backN; i++) {
+                const bw = 35 + Math.random() * 65, bh = 50 + Math.random() * 160;
+                const bx = i * (W / backN) + (Math.random() - 0.5) * 15;
+                const color = rand(NEON);
+                buildings.push({
+                    x: bx, y: HZ - bh, w: bw, h: bh, color,
+                    winR: Math.max(2, Math.floor(bh / 18)), winC: Math.max(1, Math.floor(bw / 13)),
+                    layer: 0, roof: Math.random() > 0.5 ? 'antenna' : 'flat',
+                    sign: Math.random() > 0.65 ? rand(['HOTEL', 'BAR', 'CLUB', 'LUCK', 'NEON', 'LIVE']) : null
+                });
+            }
+            /* Front-row buildings */
+            const frontN = Math.ceil(W / 85) + 2;
+            for (let i = 0; i < frontN; i++) {
+                const bw = 50 + Math.random() * 130, bh = 110 + Math.random() * 340;
+                const bx = i * (W / frontN) + (Math.random() - 0.5) * 25;
+                const color = rand(NEON);
+                buildings.push({
+                    x: bx, y: HZ - bh, w: bw, h: bh, color,
+                    winR: Math.max(3, Math.floor(bh / 22)), winC: Math.max(1, Math.floor(bw / 16)),
+                    layer: 1, roof: rand(['flat', 'antenna', 'pyramid', 'spike']),
+                    sign: Math.random() > 0.4 ? rand(['SIN CITY', 'VEGA$', 'ROYALE', 'GRAND', 'LUCKY 7', 'JACKPOT', 'CAESARS', 'NEON STRIP', 'CASINO ROYALE']) : null
+                });
+            }
+
+            /* Coconut palms — spread evenly across width */
+            [0.04, 0.10, 0.17, 0.26, 0.33, 0.42, 0.58, 0.67, 0.74, 0.83, 0.90, 0.96].forEach(px => {
+                palms.push({
+                    x: (px + (Math.random() - 0.5) * 0.03) * W, y: HZ,
+                    trunkH: 55 + Math.random() * 55,
+                    lean: (Math.random() - 0.5) * 0.2,
+                    fronds: 7 + Math.floor(Math.random() * 5),
+                    color: rand(['#00ff88', '#00e6ff', '#ff00cc', '#bf00ff', '#ffd700'])
+                });
+            });
+
+            /* Street lights */
+            const slCount = Math.floor(W / 110);
+            for (let i = 0; i < slCount; i++) {
+                streetLights.push({
+                    x: 55 + i * (W / slCount),
+                    y: HZ,
+                    color: rand(['#ffd700', '#00e6ff', '#ff2255', '#bf00ff'])
+                });
+            }
+        }
+
+        /* Build star field once (re-create on resize) */
+        let stars = [];
+        function initStars() {
+            stars = [];
+            const H = cityC.height, HZ = H * 0.60;
+            for (let i = 0; i < 220; i++) stars.push({
+                x: Math.random() * cityC.width, y: Math.random() * HZ * 0.95,
+                r: Math.random() * 1.3 + 0.2, a: Math.random()
+            });
+        }
+
+        resizeCity();
+        window.addEventListener('resize', resizeCity);
+        initStars();
+        window.addEventListener('resize', initStars);
+
+        /* ── draw helpers ── */
+        function drawBuilding(b, t) {
+            const W = cityC.width, H = cityC.height, HZ = H * 0.60;
+            const fl = 0.88 + Math.sin(t * 0.06 + b.x * 0.09) * 0.12;
+
+            /* Body */
+            cx.fillStyle = b.layer === 0 ? '#0b0618' : '#080314';
+            cx.fillRect(b.x, b.y, b.w, b.h);
+
+            /* Neon border */
+            cx.save();
+            cx.strokeStyle = b.color;
+            cx.lineWidth = b.layer === 0 ? 0.8 : 1.5;
+            cx.shadowColor = b.color;
+            cx.shadowBlur = b.layer === 0 ? 8 : 18;
+            cx.globalAlpha = 0.55 * fl;
+            cx.strokeRect(b.x, b.y, b.w, b.h);
+
+            /* Windows */
+            cx.shadowBlur = 5;
+            for (let r = 0; r < b.winR; r++) {
+                for (let c = 0; c < b.winC; c++) {
+                    const lit = Math.sin(t * 0.025 + r * 6.7 + c * 4.3 + b.x * 0.3) > 0.05;
+                    if (!lit) continue;
+                    const wx = b.x + 3 + c * (b.w / b.winC);
+                    const wy = b.y + 6 + r * (b.h / b.winR);
+                    const ww = Math.max(3, b.w / b.winC - 4);
+                    const wh = Math.max(3, b.h / b.winR - 5);
+                    cx.fillStyle = b.color;
+                    cx.shadowColor = b.color;
+                    cx.globalAlpha = (0.25 + Math.sin(t * 0.04 + r + c) * 0.12) * fl;
+                    cx.fillRect(wx, wy, ww, wh);
+                }
+            }
+
+            /* Roof */
+            cx.globalAlpha = 0.8 * fl;
+            cx.strokeStyle = b.color; cx.shadowColor = b.color; cx.shadowBlur = 14; cx.lineWidth = 1.5;
+            if (b.roof === 'antenna') {
+                const ax = b.x + b.w / 2, ay = b.y - 22 - Math.sin(t * 0.04) * 2;
+                cx.beginPath(); cx.moveTo(ax, b.y); cx.lineTo(ax, ay); cx.stroke();
+                cx.fillStyle = b.color; cx.shadowBlur = 18;
+                cx.beginPath(); cx.arc(ax, ay, 3.5, 0, Math.PI * 2); cx.fill();
+                /* blinking red tip on tall buildings */
+                if (b.layer === 1) {
+                    cx.fillStyle = '#ff2255'; cx.shadowColor = '#ff2255';
+                    cx.globalAlpha = (Math.sin(t * 0.08) > 0 ? 0.9 : 0.1) * fl;
+                    cx.beginPath(); cx.arc(ax, ay - 6, 2, 0, Math.PI * 2); cx.fill();
+                }
+            } else if (b.roof === 'pyramid') {
+                cx.beginPath();
+                cx.moveTo(b.x + b.w / 2, b.y - 18); cx.lineTo(b.x, b.y); cx.lineTo(b.x + b.w, b.y);
+                cx.closePath(); cx.stroke();
+            } else if (b.roof === 'spike') {
+                cx.beginPath();
+                cx.moveTo(b.x + b.w / 2, b.y - 38);
+                cx.lineTo(b.x + b.w * 0.38, b.y); cx.lineTo(b.x + b.w * 0.62, b.y);
+                cx.closePath(); cx.stroke();
+            }
+
+            /* Sign text */
+            if (b.sign && b.layer === 1) {
+                const fs = Math.max(9, Math.floor(b.w * 0.12));
+                cx.font = `900 ${fs}px Orbitron,monospace`;
+                cx.fillStyle = b.color;
+                cx.shadowColor = b.color; cx.shadowBlur = 22;
+                cx.textAlign = 'center';
+                cx.globalAlpha = 0.95 * fl;
+                cx.fillText(b.sign, b.x + b.w / 2, b.y + b.h * 0.25);
+            }
+            cx.restore();
+        }
+
+        function drawPalm(p, t) {
+            cx.save();
+            const sway = Math.sin(t * 0.022 + p.x * 0.04) * 0.05 + p.lean;
+            const tipX = p.x + Math.sin(sway) * p.trunkH;
+            const tipY = p.y - p.trunkH;
+
+            /* Dark trunk */
+            cx.beginPath(); cx.moveTo(p.x, p.y);
+            cx.quadraticCurveTo(p.x + sway * 35, p.y - p.trunkH * 0.5, tipX, tipY);
+            cx.lineWidth = 5; cx.strokeStyle = '#120825'; cx.shadowBlur = 0; cx.stroke();
+            /* Neon trunk glow */
+            cx.lineWidth = 1.5; cx.strokeStyle = p.color;
+            cx.shadowColor = p.color; cx.shadowBlur = 10; cx.globalAlpha = 0.5; cx.stroke();
+
+            /* Fronds */
+            for (let f = 0; f < p.fronds; f++) {
+                const angle = (f / p.fronds) * Math.PI * 2 + sway + t * 0.01;
+                const fl2 = 24 + Math.sin(f * 1.3 + t * 0.015) * 10;
+                const fx = tipX + Math.cos(angle) * fl2;
+                const fy = tipY + Math.sin(angle) * fl2 * 0.45 - 6;
+                const mcx = tipX + Math.cos(angle) * fl2 * 0.5 + Math.cos(angle + 1.1) * 7;
+                const mcy = tipY + Math.sin(angle) * fl2 * 0.3 + 3;
+
+                cx.beginPath(); cx.moveTo(tipX, tipY);
+                cx.quadraticCurveTo(mcx, mcy, fx, fy);
+                cx.lineWidth = 2.8; cx.strokeStyle = '#0a190a'; cx.shadowBlur = 0; cx.globalAlpha = 1; cx.stroke();
+                cx.lineWidth = 1.3; cx.strokeStyle = p.color; cx.shadowColor = p.color; cx.shadowBlur = 12; cx.globalAlpha = 0.7; cx.stroke();
+            }
+
+            /* Coconuts */
+            for (let c = 0; c < 3; c++) {
+                const ca = (c / 3) * Math.PI * 1.1 - 0.25 + sway;
+                cx.beginPath(); cx.arc(tipX + Math.cos(ca) * 7, tipY + Math.sin(ca) * 4 + 2, 3.5, 0, Math.PI * 2);
+                cx.fillStyle = p.color; cx.shadowColor = p.color; cx.shadowBlur = 10; cx.globalAlpha = 0.85; cx.fill();
+            }
+            cx.restore();
+        }
+
+        function drawStreetLight(sl, t) {
+            cx.save();
+            const H = cityC.height, poleH = 52;
+            cx.strokeStyle = '#1a0a30'; cx.lineWidth = 3; cx.shadowBlur = 0;
+            cx.beginPath(); cx.moveTo(sl.x, sl.y); cx.lineTo(sl.x, sl.y - poleH); cx.lineTo(sl.x + 18, sl.y - poleH); cx.stroke();
+
+            cx.strokeStyle = sl.color; cx.lineWidth = 1;
+            cx.shadowColor = sl.color; cx.shadowBlur = 8; cx.globalAlpha = 0.45;
+            cx.beginPath(); cx.moveTo(sl.x, sl.y); cx.lineTo(sl.x, sl.y - poleH); cx.lineTo(sl.x + 18, sl.y - poleH); cx.stroke();
+
+            const fl = 0.8 + Math.sin(t * 0.12 + sl.x * 0.07) * 0.2;
+            cx.fillStyle = sl.color; cx.shadowColor = sl.color; cx.shadowBlur = 20; cx.globalAlpha = 0.95 * fl;
+            cx.beginPath(); cx.arc(sl.x + 18, sl.y - poleH, 4.5, 0, Math.PI * 2); cx.fill();
+
+            /* cone of light onto road */
+            const lg = cx.createRadialGradient(sl.x + 18, sl.y - poleH, 0, sl.x + 18, sl.y - poleH, 40);
+            lg.addColorStop(0, sl.color + '33'); lg.addColorStop(1, 'transparent');
+            cx.fillStyle = lg; cx.globalAlpha = 0.25 * fl; cx.shadowBlur = 0;
+            cx.beginPath(); cx.arc(sl.x + 18, sl.y - poleH, 40, 0, Math.PI * 2); cx.fill();
+            cx.restore();
+        }
+
+        function drawSky(t) {
+            const W = cityC.width, H = cityC.height, HZ = H * 0.60;
+            const sky = cx.createLinearGradient(0, 0, 0, HZ);
+            sky.addColorStop(0, '#04010f'); sky.addColorStop(0.55, '#09021e'); sky.addColorStop(1, '#110428');
+            cx.fillStyle = sky; cx.fillRect(0, 0, W, HZ);
+
+            /* Stars */
+            stars.forEach(s => {
+                const tw = 0.35 + Math.sin(t * 0.04 + s.x * 0.28 + s.y * 0.18) * 0.65;
+                cx.beginPath(); cx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+                cx.fillStyle = '#ffffff'; cx.globalAlpha = s.a * tw; cx.fill();
+            });
+            cx.globalAlpha = 1;
+
+            /* Moon */
+            const mx = W * 0.84, my = 72;
+            const mg = cx.createRadialGradient(mx, my, 0, mx, my, 65);
+            mg.addColorStop(0, 'rgba(200,150,255,0.18)'); mg.addColorStop(1, 'transparent');
+            cx.fillStyle = mg; cx.beginPath(); cx.arc(mx, my, 65, 0, Math.PI * 2); cx.fill();
+            cx.beginPath(); cx.arc(mx, my, 24, 0, Math.PI * 2);
+            cx.fillStyle = '#ecdeff'; cx.globalAlpha = 0.9; cx.fill(); cx.globalAlpha = 1;
+
+            /* Horizon color bleeds */
+            [{ x: 0.12, c: '#ff2255' }, { x: 0.3, c: '#00e6ff' }, { x: 0.5, c: '#bf00ff' }, { x: 0.7, c: '#00e6ff' }, { x: 0.88, c: '#ff2255' }]
+                .forEach(gc => {
+                    const a = 0.10 + Math.sin(t * 0.018 + gc.x * 8) * 0.04;
+                    const g = cx.createRadialGradient(gc.x * W, HZ, 0, gc.x * W, HZ, 200);
+                    g.addColorStop(0, gc.c + '44'); g.addColorStop(1, 'transparent');
+                    cx.fillStyle = g; cx.globalAlpha = a;
+                    cx.beginPath(); cx.arc(gc.x * W, HZ, 200, 0, Math.PI * 2); cx.fill();
+                });
+            cx.globalAlpha = 1;
+
+            /* Floating sky billboards */
+            [{ x: 0.08, y: 0.28, text: 'JACKPOT', c: '#ffd700' },
+            { x: 0.44, y: 0.16, text: 'SIN CITY', c: '#ff2255' },
+            { x: 0.87, y: 0.22, text: 'VEGA$', c: '#00e6ff' }]
+                .forEach(b => {
+                    const bx = b.x * W, by = b.y * HZ;
+                    const fl = 0.82 + Math.sin(t * 0.055 + b.x * 18) * 0.18;
+                    cx.save();
+                    cx.font = `900 ${Math.floor(W * 0.021)}px Orbitron,monospace`;
+                    cx.fillStyle = b.c; cx.shadowColor = b.c; cx.shadowBlur = 26;
+                    cx.textAlign = 'center'; cx.globalAlpha = 0.78 * fl;
+                    cx.fillText(b.text, bx, by);
+                    const tw = cx.measureText(b.text).width;
+                    cx.strokeStyle = b.c; cx.lineWidth = 1.5; cx.shadowBlur = 12;
+                    cx.beginPath(); cx.moveTo(bx - tw / 2, by + 7); cx.lineTo(bx + tw / 2, by + 7); cx.stroke();
+                    cx.restore();
+                });
+        }
+
+        function drawGround(t) {
+            const W = cityC.width, H = cityC.height, HZ = H * 0.60;
+            const rg = cx.createLinearGradient(0, HZ, 0, H);
+            rg.addColorStop(0, '#0e0523'); rg.addColorStop(1, '#060110');
+            cx.fillStyle = rg; cx.fillRect(0, HZ, W, H - HZ);
+
+            /* Lane dashes */
+            cx.strokeStyle = '#ffd700'; cx.lineWidth = 2;
+            cx.shadowColor = '#ffd700'; cx.shadowBlur = 8;
+            cx.setLineDash([28, 18]);
+            cx.beginPath();
+            cx.moveTo(0, HZ + (H - HZ) * 0.45); cx.lineTo(W, HZ + (H - HZ) * 0.45); cx.stroke();
+            cx.setLineDash([]);
+
+            /* Neon puddle reflections */
+            ['#00e6ff', '#ff2255', '#bf00ff', '#00ff88'].forEach((c, i) => {
+                const rx = (0.12 + i * 0.22) * W;
+                const a = 0.07 + Math.sin(t * 0.03 + i * 1.4) * 0.04;
+                cx.globalAlpha = a;
+                cx.fillStyle = c;
+                cx.beginPath();
+                cx.moveTo(rx - 15, HZ); cx.lineTo(rx + 15, HZ);
+                cx.lineTo(rx + 55, H); cx.lineTo(rx - 55, H);
+                cx.closePath(); cx.fill();
+            });
+            cx.globalAlpha = 1;
+        }
+
+        /* ── main city loop ── */
+        let cityT = 0;
+        (function renderCity() {
+            cx.clearRect(0, 0, cityC.width, cityC.height);
+            drawSky(cityT);
+            buildings.filter(b => b.layer === 0).forEach(b => drawBuilding(b, cityT));
+            buildings.filter(b => b.layer === 1).forEach(b => drawBuilding(b, cityT));
+            drawGround(cityT);
+            palms.forEach(p => drawPalm(p, cityT));
+            streetLights.forEach(sl => drawStreetLight(sl, cityT));
+            cityT++;
+            requestAnimationFrame(renderCity);
+        })();
+
+        /* ── LOADER PARTICLES ── */
+        const lc = document.getElementById('loader-canvas');
+        const lx = lc.getContext('2d');
+        lc.width = innerWidth; lc.height = innerHeight;
+        const pts = Array.from({ length: 65 }, () => ({
+            x: Math.random() * lc.width, y: Math.random() * lc.height,
+            vx: (Math.random() - 0.5) * 0.22, vy: (Math.random() - 0.5) * 0.22,
+            r: Math.random() * 1.3 + 0.4, a: Math.random() * 0.3 + 0.07
+        }));
+        let lraf;
+        function drawLoader() {
+            lx.clearRect(0, 0, lc.width, lc.height);
+            pts.forEach(p => {
+                p.x = (p.x + p.vx + lc.width) % lc.width;
+                p.y = (p.y + p.vy + lc.height) % lc.height;
+                lx.beginPath(); lx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+                lx.fillStyle = `rgba(0,230,255,${p.a})`; lx.fill();
+            });
+            for (let i = 0; i < pts.length; i++) for (let j = i + 1; j < pts.length; j++) {
+                const dx = pts[i].x - pts[j].x, dy = pts[i].y - pts[j].y, d = Math.sqrt(dx * dx + dy * dy);
+                if (d < 100) {
+                    lx.beginPath(); lx.moveTo(pts[i].x, pts[i].y); lx.lineTo(pts[j].x, pts[j].y);
+                    lx.strokeStyle = `rgba(0,230,255,${0.05 * (1 - d / 100)})`; lx.lineWidth = 0.5; lx.stroke();
+                }
+            }
+            lraf = requestAnimationFrame(drawLoader);
+        }
+        drawLoader();
+
+        /* ── LOADER SEQUENCE ── */
+        const phases = ["BOOT SEQUENCE", "NEURAL UPLINK", "DECRYPTION", "ACCESS GRANTED"];
+        const messages = ["INITIALIZING SYSTEM", "CALIBRATING NEURAL LINK", "BYPASSING FIREWALLS", "DECRYPTING PAYLOAD", "ESTABLISHING CONNECTION", "ACCESS GRANTED"];
+        const fillEl = document.getElementById('loaderFill');
+        const msgEl = document.getElementById('loaderMsg');
+        const pctEl = document.getElementById('loaderPct');
+        const phaseEl = document.getElementById('loaderPhase');
+        const loader = document.getElementById('loader');
+        const main = document.getElementById('main');
+
+        let mi = 0;
+        function tick() {
+            if (mi < messages.length) {
+                msgEl.style.opacity = 0;
+                setTimeout(() => { msgEl.textContent = messages[mi]; phaseEl.textContent = phases[Math.min(Math.floor(mi * phases.length / messages.length), phases.length - 1)]; msgEl.style.opacity = 1; mi++; }, 100);
+                setTimeout(tick, 640);
+            }
+        }
+        setTimeout(() => {
+            fillEl.style.width = '100%'; tick();
+            const dur = 3600, t0 = performance.now();
+            (function ap(now) {
+                const p = Math.min((now - t0) / dur, 1);
+                pctEl.textContent = Math.floor((1 - Math.pow(1 - p, 3)) * 100) + '%';
+                if (p < 1) requestAnimationFrame(ap); else pctEl.textContent = '100%';
+            })(t0);
+        }, 80);
+
+        setTimeout(() => {
+            cancelAnimationFrame(lraf);
+            loader.classList.add('hide');
+            setTimeout(() => { loader.style.display = 'none'; main.classList.add('show'); }, 1200);
+        }, 4700);
+    </script>
+</body>
+
+</html>

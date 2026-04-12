@@ -1,0 +1,11 @@
+Arbitrage betting ensures guaranteed profit when odds discrepancies exist.
+
+Expected value (EV) determines profitability of a bet over time.
+
+Kelly Criterion optimizes bet sizing based on edge and bankroll.
+
+High variance implies higher risk even if EV is positive.
+
+Sports betting markets are often efficient but can contain inefficiencies.
+
+Decision making should consider probability, risk, and long-term growth.

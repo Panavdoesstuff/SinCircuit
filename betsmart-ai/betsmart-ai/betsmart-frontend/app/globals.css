@@ -1,0 +1,358 @@
+@import "tailwindcss";
+
+:root {
+  --bg: #000000;
+  --bg2: #050505;
+  --bg3: #111111;
+  --bg-input: #0a0a0a;
+  --neon-gold: #FFD700;
+  --neon-green: #00FF88;
+  --red: #ff0033;
+  --text-primary: #ffffff;
+  --text-secondary: #999999;
+  --muted: #4e4e4e;
+
+  --font-heading: var(--font-bebas), "Helvetica Neue", sans-serif;
+  --font-mono: var(--font-jetbrains), monospace;
+  --font-serif: var(--font-playfair), serif;
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background-color: var(--bg); /* Fallback */
+  color: var(--text-primary);
+  font-family: var(--font-serif);
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+  position: relative;
+  overflow-x: hidden;
+}
+
+/* LOUD NEON CASINO BACKGROUND */
+body::before {
+  content: "";
+  position: fixed;
+  top: -15%; left: -15%; right: -15%; bottom: -15%; /* Extra wide to allow drifting without breaking edges */
+  width: 130%; height: 130%;
+  pointer-events: none;
+  z-index: -4;
+  background: url('/vivid-casino-bg.png') center/cover repeat;
+  /* Intense drifting animation and neon flicker */
+  animation: casinoDrift 20s linear infinite alternate, neonFlicker 4s infinite;
+  opacity: 1; /* MAXIMUM VISIBILITY */
+}
+
+@keyframes casinoDrift {
+  0% { transform: scale(1) translate(0, 0); }
+  100% { transform: scale(1.1) translate(-2%, 2%); }
+}
+
+@keyframes neonFlicker {
+  0% { filter: brightness(1) saturate(1.2); }
+  9% { filter: brightness(1) saturate(1.2); }
+  10% { filter: brightness(1.6) saturate(1.5) drop-shadow(0 0 20px rgba(255, 0, 255, 0.8)); }
+  11% { filter: brightness(1) saturate(1.2); }
+  45% { filter: brightness(1) saturate(1.2); }
+  46% { filter: brightness(1.4) saturate(1.8) drop-shadow(0 0 15px rgba(0, 255, 255, 0.7)); }
+  48% { filter: brightness(0.9) saturate(1.2); }
+  49% { filter: brightness(1.4) saturate(1.8) drop-shadow(0 0 15px rgba(0, 255, 255, 0.7)); }
+  50% { filter: brightness(1) saturate(1.2); }
+  100% { filter: brightness(1) saturate(1.2); }
+}
+
+/* Overlay for purely structural grid, no dark shading, let the casino BLEED */
+body::after {
+  content: "";
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  pointer-events: none;
+  z-index: -3;
+  background-image: 
+    linear-gradient(45deg, rgba(0, 255, 136, 0.05) 1px, transparent 1px),
+    linear-gradient(-45deg, rgba(0, 255, 136, 0.05) 1px, transparent 1px);
+  background-size: 40px 40px;
+}
+
+header {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  background: rgba(0, 0, 0, 0.75) !important; /* Extremely dark with blur so text stays readable over bright neon */
+  backdrop-filter: blur(24px) !important;
+  -webkit-backdrop-filter: blur(24px) !important;
+  border-bottom: 2px solid rgba(255, 215, 0, 0.4);
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--neon-gold); border-radius: 0; }
+::-webkit-scrollbar-thumb:hover { background: var(--neon-green); }
+
+/* Typography */
+h1, h2, h3, h4, h5, h6, .section-label, .header-glow {
+  font-family: var(--font-heading);
+  text-transform: uppercase;
+  font-weight: 400;
+  letter-spacing: 1.5px;
+}
+
+.odds-pill, .stats, .badge-value, .badge-arb, .badge-live, .bet-now-btn {
+  font-family: var(--font-mono);
+}
+
+.header-glow {
+  color: var(--neon-gold);
+}
+
+.section-label {
+  font-size: 14px;
+  color: var(--neon-gold);
+  border-bottom: 2px solid rgba(255, 215, 0, 0.4);
+  display: inline-block;
+  padding-bottom: 2px;
+  margin-bottom: 16px;
+  background: rgba(0,0,0,0.6);
+  padding: 4px 12px;
+}
+
+.cyber-divider {
+  border: none;
+  border-bottom: 1px solid rgba(255, 215, 0, 0.25);
+  margin: 24px 0;
+}
+
+/* Glassmorphism -> Intensely blurred to overlay bright neon background smoothly */
+.glass {
+  background: rgba(2, 2, 2, 0.75); /* Dark black, translucent */
+  backdrop-filter: blur(28px) saturate(1.2);
+  -webkit-backdrop-filter: blur(28px) saturate(1.2);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-top: 2px solid var(--neon-gold);
+  border-radius: 0; /* SHARP CORNERS */
+  transition: all 0.3s ease;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.8);
+}
+.glass:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 10px 50px rgba(255, 215, 0, 0.3);
+  border-color: rgba(255, 215, 0, 0.4);
+  border-top: 2px solid var(--neon-gold);
+}
+.glass-green {
+  border-top: 2px solid var(--neon-green);
+}
+.glass-green:hover {
+  box-shadow: 0 10px 50px rgba(0, 255, 136, 0.25);
+  border-color: rgba(0, 255, 136, 0.4);
+  border-top: 2px solid var(--neon-green);
+}
+
+.odds-pill {
+  font-size: 20px;
+  color: var(--neon-green);
+  font-weight: 700;
+  text-shadow: 0 0 10px rgba(0, 255, 136, 0.6);
+}
+
+/* LIVE Badge */
+.badge-live {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 12px;
+  background: rgba(0,0,0,0.8);
+  color: #fff;
+  border: 1px solid var(--red);
+  border-radius: 0;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  box-shadow: 0 0 10px rgba(255, 0, 51, 0.4);
+}
+
+.live-dot {
+  width: 10px;
+  height: 10px;
+  background: var(--red);
+  border-radius: 50%;
+  box-shadow: 0 0 12px var(--red);
+  animation: pulse-live 0.8s infinite alternate;
+}
+
+@keyframes pulse-live {
+  0% { transform: scale(0.9); opacity: 0.7; box-shadow: 0 0 5px var(--red); }
+  100% { transform: scale(1.3); opacity: 1; box-shadow: 0 0 18px var(--red); }
+}
+
+.badge-value, .badge-arb {
+  display: inline-flex; align-items: center; padding: 4px 10px;
+  border-radius: 0; font-size: 12px; font-weight: bold; letter-spacing: 0.05em;
+}
+.badge-value {
+  background: rgba(0, 255, 136, 0.15); color: var(--neon-green); border: 1px solid rgba(0, 255, 136, 0.6);
+  text-shadow: 0 0 5px rgba(0,255,136,0.3);
+}
+.badge-arb {
+  background: rgba(255, 215, 0, 0.15); color: var(--neon-gold); border: 1px solid rgba(255, 215, 0, 0.6);
+  text-shadow: 0 0 5px rgba(255,215,0,0.3);
+}
+
+/* Chat */
+.chat-bubble-user {
+  background: var(--neon-gold);
+  color: #000;
+  border-radius: 0;
+  padding: 12px 18px;
+  max-width: 75%;
+  word-break: break-word;
+  line-height: 1.6;
+  font-size: 15px;
+  font-weight: 600;
+  font-family: inherit;
+  box-shadow: 0 0 20px rgba(255,215,0,0.3);
+}
+.chat-bubble-ai {
+  background: rgba(0, 0, 0, 0.85); /* Highly dark overlay over neon */
+  backdrop-filter: blur(24px);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-left: 3px solid var(--neon-green);
+  color: var(--text-primary);
+  border-radius: 0;
+  padding: 12px 18px;
+  max-width: 85%;
+  word-break: break-word;
+  line-height: 1.7;
+  font-size: 15px;
+  white-space: pre-wrap;
+  font-family: inherit;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+}
+
+/* Typing */
+.typing-dot { width: 6px; height: 6px; border-radius: 0; background: var(--neon-green); animation: bounce 1s infinite; margin: 0 2px; }
+@keyframes bounce { 0%, 100% { transform: translateY(0); opacity: 0.5; } 50% { transform: translateY(-4px); opacity: 1; } }
+
+/* Inputs */
+.bs-input {
+  background: rgba(0, 0, 0, 0.8);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 0;
+  color: var(--text-primary);
+  padding: 14px 16px;
+  width: 100%;
+  font-size: 15px;
+  outline: none;
+  font-family: var(--font-mono);
+  transition: all 0.2s;
+}
+.bs-input:focus { border-color: var(--neon-gold); box-shadow: 0 0 20px rgba(255, 215, 0, 0.3); }
+.bs-input::placeholder { color: var(--text-secondary); }
+.bs-input:disabled { opacity: 0.5; cursor: not-allowed; }
+.bs-input[type=number]::-webkit-inner-spin-button, .bs-input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+.bs-input[type=number] { -moz-appearance: textfield; }
+
+.search-input {
+  font-family: var(--font-mono) !important;
+  border-radius: 0 !important;
+  border: 1px solid rgba(255, 255, 255, 0.2) !important;
+  background: rgba(0, 0, 0, 0.85) !important;
+  backdrop-filter: blur(20px) !important;
+}
+.search-input:focus {
+  border-color: var(--neon-gold) !important;
+  box-shadow: 0 0 25px rgba(255, 215, 0, 0.4) !important;
+}
+
+/* BUTTONS */
+.btn-primary, .btn-green, .btn-blue, .btn-neon-blue, .nav-tab {
+  background: var(--neon-gold) !important;
+  color: #000 !important;
+  border: none !important;
+  border-radius: 0 !important;
+  padding: 12px 24px;
+  font-weight: 700 !important;
+  font-size: 16px !important;
+  font-family: var(--font-heading) !important;
+  text-transform: uppercase !important;
+  letter-spacing: 1.5px !important;
+  cursor: pointer;
+  transition: all 0.25s ease !important;
+  box-shadow: 0 0 10px rgba(255,215,0,0.3) !important;
+}
+
+.btn-primary:hover:not(:disabled), .btn-green:hover:not(:disabled), .btn-blue:hover:not(:disabled), .btn-neon-blue:hover:not(:disabled), .nav-tab:hover {
+  background: var(--neon-green) !important;
+  color: #000 !important;
+  box-shadow: 0 0 30px rgba(0, 255, 136, 0.6) !important;
+  transform: translateY(-2px);
+}
+
+.btn-primary:active, .btn-green:active, .btn-blue:active, .btn-neon-blue:active {
+  transform: translateY(1px);
+}
+
+.btn-primary:disabled, .btn-green:disabled, .btn-blue:disabled, .btn-neon-blue:disabled {
+  opacity: 0.3 !important;
+  cursor: not-allowed !important;
+  background: var(--muted) !important;
+  color: #fff !important;
+  transform: none;
+}
+
+.nav-tab-active {
+  background: var(--neon-green) !important;
+  color: #000 !important;
+  box-shadow: 0 0 25px rgba(0, 255, 136, 0.5) !important;
+}
+.nav-tab-inactive {
+  background: rgba(0,0,0,0.7) !important;
+  backdrop-filter: blur(12px) !important;
+  color: var(--text-secondary) !important;
+  border: 1px solid rgba(255,255,255,0.2) !important;
+  box-shadow: none !important;
+}
+.nav-tab-inactive:hover {
+  background: var(--bg3) !important;
+  color: var(--neon-gold) !important;
+  box-shadow: 0 0 10px rgba(255,215,0,0.2) !important;
+  transform: none !important;
+  border-color: var(--neon-gold) !important;
+}
+
+.bet-now-btn {
+  display: inline-block; padding: 6px 16px; background: rgba(0,0,0,0.6); color: var(--neon-gold);
+  border: 1px solid var(--neon-gold); border-radius: 0; font-size: 13px; text-decoration: none;
+  transition: all 0.2s; text-transform: uppercase; font-weight: bold;
+}
+.bet-now-btn:hover { background: var(--neon-gold); color: #000; box-shadow: 0 0 20px rgba(255, 215, 0, 0.5); }
+
+/* Animation Utils */
+@keyframes fadeSlideUp { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
+.fade-in { animation: fadeSlideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) both; }
+
+.genre-card {
+  background: rgba(0, 0, 0, 0.75); /* Deep dark blur */
+  backdrop-filter: blur(20px) saturate(1.2);
+  border: 1px solid rgba(255, 255, 255, 0.1); 
+  border-radius: 0; 
+  border-top: 2px solid var(--muted);
+  transition: all 0.3s ease;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.7);
+}
+.genre-card:hover { border-top: 2px solid var(--neon-gold); box-shadow: 0 15px 50px rgba(255, 215, 0, 0.2); }
+.genre-header { padding: 18px 24px; cursor: pointer; display: flex; align-items: center; justify-content: space-between; }
+.genre-header:hover { background: rgba(255, 255, 255, 0.05); }
+
+.animate-pulse { animation: pulseOpacity 2s infinite ease-in-out; }
+@keyframes pulseOpacity { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }

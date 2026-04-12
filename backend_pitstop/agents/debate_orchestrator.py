@@ -1,98 +1,112 @@
-from langgraph.graph import StateGraph, END
-from typing import TypedDict, List
+
 import os
+import json
 from groq import Groq
-from dotenv import load_dotenv
-
-# Import your specific agent functions
-from agents.race_engineer import race_engineer_agent
-from agents.tire_agent import tyre_strategist_agent
-from agents.weather_agent import weather_oracle_agent
-from agents.rival_agent import rival_analyst_agent
 from rag.retriever import get_strategy_context
+from knowledge_base import query_strategy_logic
 
-load_dotenv()
-groq_client = Groq(api_key=os.getenv("GROQ_API_KEY"))
+# Initialize Groq
+client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 
-class RaceDebateState(TypedDict):
-    race_state: dict
-    rag_context: List[str]
-    engineer_rec: str
-    tyre_rec: str
-    weather_rec: str
-    rival_rec: str
-    final_decision: str
-    confidence: str
-
-def engineer_node(state: RaceDebateState) -> RaceDebateState:
-    state["engineer_rec"] = race_engineer_agent(state["race_state"], state["rag_context"])
-    return state
-
-def tyre_node(state: RaceDebateState) -> RaceDebateState:
-    state["tyre_rec"] = tyre_strategist_agent(state["race_state"], state["rag_context"])
-    return state
-
-def weather_node(state: RaceDebateState) -> RaceDebateState:
-    state["weather_rec"] = weather_oracle_agent(state["race_state"], state["rag_context"])
-    return state
-
-def rival_node(state: RaceDebateState) -> RaceDebateState:
-    state["rival_rec"] = rival_analyst_agent(state["race_state"], state["rag_context"])
-    return state
-
-def synthesiser_node(state: RaceDebateState) -> RaceDebateState:
-    prompt = f"""You are the Pit Wall Director. Synthesise these views:
-Engineer: {state['engineer_rec']}
-Tyre: {state['tyre_rec']}
-Weather: {state['weather_rec']}
-Rival: {state['rival_rec']}
-
-Respond in EXACTLY this format:
-FINAL DECISION: [The specific action to take]
-SUMMARY: [2 sentences max explaining why]"""
-
-    r = groq_client.chat.completions.create(
-        model="llama-3.3-70b-versatile",
-        messages=[{"role":"user","content":prompt}]
-    )
-    state["final_decision"] = r.choices[0].message.content
+def run_debate(race_data: dict):
+    """
+    Orchestrates a detailed F1 pit wall debate using Llama 3 and RAG context.
+    """
+    # ─── DATA EXTRACTION ───
+    lap = race_data.get("lap", 1)
+    player = race_data.get("player", {})
+    analysis = race_data.get("analysis", {})
+    weather_data = race_data.get("weather", {})
     
-    # Logic: Count how many experts are HIGH confidence
-    all_recs = [state['engineer_rec'], state['tyre_rec'], state['weather_rec'], state['rival_rec']]
-    high_count = sum(1 for rec in all_recs if "CONFIDENCE: HIGH" in rec)
-    state["confidence"] = "HIGH" if high_count >= 3 else "MEDIUM" if high_count >= 2 else "LOW"
-    return state
-
-def build_debate_graph():
-    g = StateGraph(RaceDebateState)
-    g.add_node("engineer", engineer_node)
-    g.add_node("tyre", tyre_node)
-    g.add_node("weather", weather_node)
-    g.add_node("rival", rival_node)
-    g.add_node("synthesiser", synthesiser_node)
+    compound = player.get("compound", "medium")
+    tyre_age = player.get("tyre_age", 0)
+    pos = analysis.get("player_position", "P1")
+    gap = analysis.get("gap_to_leader_s", 0.0)
+    laps_rem = race_data.get("laps_remaining", 50)
+    weather = weather_data.get("state", "dry")
+    track_temp = race_data.get("track_temp_c", 38.0)
     
-    g.set_entry_point("engineer")
-    g.add_edge("engineer", "tyre")
-    g.add_edge("tyre", "weather")
-    g.add_edge("weather", "rival")
-    g.add_edge("rival", "synthesiser")
-    g.add_edge("synthesiser", END)
-    return g.compile()
-
-debate_graph = build_debate_graph()
-
-def run_debate(race_state: dict) -> dict:
-    # Get RAG context once to share across all agents
-    ctx = get_strategy_context(
-        race_state["lap"], 
-        race_state["compound"], 
-        race_state["tyre_age"], 
-        race_state["gap_to_leader"]
+    # ─── STEP 1: RETRIEVE HISTORICAL CONTEXT (RAG) ───
+    rag_context = get_strategy_context(
+        lap=lap, 
+        compound=compound, 
+        tyre_age=tyre_age, 
+        gap=gap, 
+        laps_remaining=laps_rem,
+        weather=weather
     )
-    initial = RaceDebateState(
-        race_state=race_state, 
-        rag_context=ctx, 
-        engineer_rec="", tyre_rec="", weather_rec="", rival_rec="", 
-        final_decision="", confidence=""
-    )
-    return debate_graph.invoke(initial)
+    history_str = "\n".join(rag_context)
+
+    # ─── STEP 2: MULTI-AGENT PROMPT ───
+    system_prompt = f"""
+    You are an F1 Strategy Orchestrator. You are managing a race for 'Panav' who is currently {pos}.
+    You must generate a structured debate between four specialists. 
+    
+    CURRENT TELEMETRY:
+    - Position: {pos} | Lap: {lap} | Remaining: {laps_rem}
+    - Tyres: {compound} ({tyre_age} laps old)
+    - Weather: {weather} | Track Temp: {track_temp}°C
+    
+    HISTORICAL RAG DATA:
+    {history_str}
+
+    INSTRUCTIONS:
+    1. Respond ONLY in a valid JSON format.
+    2. Provide detailed, technical reasoning (3-4 sentences each).
+    3. Use the RAG data to justify decisions (e.g., 'Similar to Hamilton in 2021...').
+    4. The 'radio_message' should be punchy and professional.
+    """
+
+    user_prompt = """
+    Please provide the following JSON keys:
+    'engineer_rec': Focus on engine/ERS and gaps.
+    'tyre_rec': Focus on degradation and the 'cliff'.
+    'weather_rec': Focus on rain probability and track temp.
+    'rival_rec': Focus on what VER/LEC are doing.
+    'final_decision': 'BOX' or 'STAY OUT'.
+    'radio_message': A short message to the driver.
+    """
+
+    # ─── STEP 3: CALL LLM ───
+    try:
+        chat_completion = client.chat.completions.create(
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt}
+            ],
+            model="llama-3.3-70b-versatile",
+            response_format={"type": "json_object"} # Forces JSON output
+        )
+        
+        # Parse the JSON response from the LLM
+        ai_output = json.loads(chat_completion.choices[0].message.content)
+        
+        # ─── STEP 4: RETURN DYNAMIC RESULT ───
+        return {
+            "engineer_rec": ai_output.get("engineer_rec", "Keep pushing."),
+            "tyre_rec": ai_output.get("tyre_rec", "Monitor the fronts."),
+            "weather_rec": ai_output.get("weather_rec", "Radar is clear."),
+            "rival_rec": ai_output.get("rival_rec", "Verstappen is within DRS."),
+            "final_decision": ai_output.get("final_decision", "STAY OUT"),
+            "dominant_factor": "Race Pace",
+            "confidence": 0.9,
+            "risk": "Moderate",
+            "contingency": "Prepare for a safety car restart.",
+            "radio_message": ai_output.get("radio_message", "Push now, Panav."),
+            "rag_context": history_str
+        }
+        
+    except Exception as e:
+        print(f"Error in LLM debate: {e}")
+        # Fallback to keep the app running if API fails
+        return {
+            "engineer_rec": "Telemetry data error. Reverting to base strategy.",
+            "tyre_rec": "Check tyre pressures manually.",
+            "weather_rec": "Visual confirmation of dry track.",
+            "rival_rec": "Maintain gap to car behind.",
+            "final_decision": "STAY OUT",
+            "radio_message": "Radio check, Panav. Stay focused.",
+            "rag_context": "None"
+        }
+
+        

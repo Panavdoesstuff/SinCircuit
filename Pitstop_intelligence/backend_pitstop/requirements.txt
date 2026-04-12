@@ -1,7 +1,23 @@
+# Web Server & API
 fastapi
 uvicorn
 python-dotenv
-groq
-chromadb
 pydantic
+pydantic-settings
 requests
+httpx
+
+# AI & Agents
+groq
+langchain
+langchain-community
+
+# RAG & Vector DB
+chromadb
+sentence-transformers
+numpy
+torch --index-url https://download.pytorch.org/whl/cpu
+
+# Utilities
+watchfiles
+python-multipart
